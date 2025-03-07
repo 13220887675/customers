@@ -1,4 +1,20 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 会员管理系统
+
+这是一个基于Next.js和Supabase开发的会员管理系统，用于管理健身房会员、课程和教练等信息。
+
+## 系统入口
+
+### 管理员入口
+
+- 路径：`/admin/login`
+- 默认账号：admin
+- 默认密码：admin
+
+### 会员入口
+
+- 路径：`/login`
+- 账号：会员手机号
+- 密码：手机号后6位
 
 ## Getting Started
 
