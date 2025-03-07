@@ -8,6 +8,7 @@ import { format } from 'date-fns'
 type FinanceRecord = {
   id: string
   type: 'income' | 'expense'
+  category: 'course' | 'coach_fee' | 'other'
   name: string
   amount: number
   record_date: string
@@ -23,6 +24,12 @@ export default function FinancePage() {
   const [startDate, setStartDate] = useState(format(new Date().setDate(1), 'yyyy-MM-dd'))
   const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [type, setType] = useState<'all' | 'income' | 'expense'>('all')
+  const [category, setCategory] = useState<'all' | 'course' | 'coach_fee' | 'other'>('all')
+  const [timeRange, setTimeRange] = useState<'month' | 'year'>('month')
+  const [courseIncome, setCourseIncome] = useState(0)
+  const [coachExpense, setCoachExpense] = useState(0)
+  const [otherIncome, setOtherIncome] = useState(0)
+  const [otherExpense, setOtherExpense] = useState(0)
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -64,21 +71,45 @@ export default function FinancePage() {
         query = query.eq('type', type)
       }
 
+      if (category !== 'all') {
+        query = query.eq('category', category)
+      }
+
       const { data } = await query
       setRecords(data || [])
 
-      // 计算总收入和支出
+      // 计算各类收支
       let income = 0
       let expense = 0
+      let courseInc = 0
+      let coachExp = 0
+      let otherInc = 0
+      let otherExp = 0
+
       data?.forEach(record => {
         if (record.type === 'income') {
           income += record.amount
+          if (record.category === 'course') {
+            courseInc += record.amount
+          } else if (record.category === 'other') {
+            otherInc += record.amount
+          }
         } else {
           expense += record.amount
+          if (record.category === 'coach_fee') {
+            coachExp += record.amount
+          } else if (record.category === 'other') {
+            otherExp += record.amount
+          }
         }
       })
+
       setTotalIncome(income)
       setTotalExpense(expense)
+      setCourseIncome(courseInc)
+      setCoachExpense(coachExp)
+      setOtherIncome(otherInc)
+      setOtherExpense(otherExp)
     } catch (error) {
       console.error('Error fetching records:', error)
     }
@@ -89,12 +120,13 @@ export default function FinancePage() {
     try {
       const formData = new FormData(e.currentTarget)
       const type = formData.get('type') as 'income' | 'expense'
+      const category = formData.get('category') as 'course' | 'coach_fee' | 'other'
       const name = formData.get('name') as string
       const amount = parseFloat(formData.get('amount') as string)
       const record_date = formData.get('record_date') as string
 
       const { error } = await supabase.from('finance_records').insert([
-        { type, name, amount, record_date }
+        { type, category, name, amount, record_date }
       ])
 
       if (error) throw error
@@ -126,7 +158,19 @@ export default function FinancePage() {
 
   useEffect(() => {
     fetchRecords()
-  }, [startDate, endDate, type])
+  }, [startDate, endDate, type, category])
+
+  useEffect(() => {
+    // 根据时间维度自动设置日期范围
+    const today = new Date()
+    if (timeRange === 'month') {
+      setStartDate(format(new Date(today.getFullYear(), today.getMonth(), 1), 'yyyy-MM-dd'))
+      setEndDate(format(today, 'yyyy-MM-dd'))
+    } else {
+      setStartDate(format(new Date(today.getFullYear(), 0, 1), 'yyyy-MM-dd'))
+      setEndDate(format(today, 'yyyy-MM-dd'))
+    }
+  }, [timeRange])
 
   if (loading) {
     return (
@@ -154,7 +198,7 @@ export default function FinancePage() {
         <div className="px-4 py-6 sm:px-0">
           {/* 筛选条件 */}
           <div className="bg-white p-6 rounded-lg shadow mb-6">
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   开始日期
@@ -179,6 +223,19 @@ export default function FinancePage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
+                  时间维度
+                </label>
+                <select
+                  value={timeRange}
+                  onChange={(e) => setTimeRange(e.target.value as 'month' | 'year')}
+                  className="w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"
+                >
+                  <option value="month">按月</option>
+                  <option value="year">按年</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   类型
                 </label>
                 <select
@@ -191,6 +248,21 @@ export default function FinancePage() {
                   <option value="expense">支出</option>
                 </select>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  分类
+                </label>
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value as 'all' | 'course' | 'coach_fee' | 'other')}
+                  className="w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"
+                >
+                  <option value="all">全部</option>
+                  <option value="course">卖课收入</option>
+                  <option value="coach_fee">教练费支出</option>
+                  <option value="other">其他</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -199,10 +271,30 @@ export default function FinancePage() {
             <div className="bg-white p-6 rounded-lg shadow">
               <h3 className="text-lg font-medium text-gray-900 mb-2">总收入</h3>
               <p className="text-2xl font-bold text-green-600">¥{totalIncome.toFixed(2)}</p>
+              <div className="mt-4 space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-500">卖课收入：</span>
+                  <span className="text-sm text-green-600">¥{courseIncome.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-500">其他收入：</span>
+                  <span className="text-sm text-green-600">¥{otherIncome.toFixed(2)}</span>
+                </div>
+              </div>
             </div>
             <div className="bg-white p-6 rounded-lg shadow">
               <h3 className="text-lg font-medium text-gray-900 mb-2">总支出</h3>
               <p className="text-2xl font-bold text-red-600">¥{totalExpense.toFixed(2)}</p>
+              <div className="mt-4 space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-500">教练费支出：</span>
+                  <span className="text-sm text-red-600">¥{coachExpense.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-500">其他支出：</span>
+                  <span className="text-sm text-red-600">¥{otherExpense.toFixed(2)}</span>
+                </div>
+              </div>
             </div>
             <div className="bg-white p-6 rounded-lg shadow">
               <h3 className="text-lg font-medium text-gray-900 mb-2">结余</h3>
@@ -226,6 +318,20 @@ export default function FinancePage() {
                   >
                     <option value="income">收入</option>
                     <option value="expense">支出</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    分类
+                  </label>
+                  <select
+                    name="category"
+                    required
+                    className="w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"
+                  >
+                    <option value="course">卖课收入</option>
+                    <option value="coach_fee">教练费支出</option>
+                    <option value="other">其他</option>
                   </select>
                 </div>
                 <div>
