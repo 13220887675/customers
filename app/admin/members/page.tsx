@@ -122,9 +122,15 @@ export default function MembersPage() {
                       </button>
                       <button
                         onClick={() => router.push(`/admin/members/${member.id}/courses`)}
-                        className="text-green-600 hover:text-green-900"
+                        className="text-green-600 hover:text-green-900 mr-4"
                       >
                         购课记录
+                      </button>
+                      <button
+                        onClick={() => router.push(`/admin/members/${member.id}/renew`)}
+                        className="text-blue-600 hover:text-blue-900"
+                      >
+                        续费
                       </button>
                     </td>
                   </tr>
