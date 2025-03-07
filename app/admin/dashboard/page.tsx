@@ -133,7 +133,7 @@ export default function AdminDashboard() {
             </Link>
 
             {/* 课程记录卡片 */}
-            <Link href="/admin/classes" className="block">
+            <Link href="/admin/class-records" className="block">
               <div className="bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow">
                 <div className="px-4 py-5 sm:p-6">
                   <div className="flex items-center">
