@@ -3,14 +3,20 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
-import { format } from 'date-fns'
+import type { Database } from '@/lib/supabase/types'
+
+type Member = Database['public']['Tables']['users']['Row']
+type ClassRecord = Database['public']['Tables']['class_records']['Row'] & {
+  coaches?: { name: string }
+}
+type CoursePurchase = Database['public']['Tables']['course_purchases']['Row']
 
 export default function MemberDashboard() {
   const router = useRouter()
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<Member | null>(null)
   const [loading, setLoading] = useState(true)
-  const [classRecords, setClassRecords] = useState<any[]>([])
-  const [coursePurchases, setCoursePurchases] = useState<any[]>([])
+  const [classRecords, setClassRecords] = useState<ClassRecord[]>([])
+  const [coursePurchases, setCoursePurchases] = useState<CoursePurchase[]>([])
 
   useEffect(() => {
     // 检查用户是否已登录
@@ -58,7 +64,7 @@ export default function MemberDashboard() {
     }
 
     checkAuth()
-  }, [])
+  }, [router])
 
   if (loading) {
     return (

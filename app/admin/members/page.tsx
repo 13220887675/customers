@@ -45,7 +45,7 @@ export default function MembersPage() {
     }
 
     checkAuth()
-  }, [])
+  }, [router])
 
   if (loading) {
     return (

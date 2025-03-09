@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import { format } from 'date-fns'
@@ -55,9 +55,9 @@ export default function FinancePage() {
     }
 
     checkAuth()
-  }, [])
+  }, [router])
 
-  const fetchRecords = async () => {
+  const fetchRecords = useCallback(async () => {
     try {
       let query = supabase
         .from('finance_records')
@@ -113,8 +113,8 @@ export default function FinancePage() {
     } catch (error) {
       console.error('Error fetching records:', error)
     }
-  }
-
+  }, [startDate, endDate, type, category])
+  
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     try {
@@ -124,13 +124,13 @@ export default function FinancePage() {
       const name = formData.get('name') as string
       const amount = parseFloat(formData.get('amount') as string)
       const record_date = formData.get('record_date') as string
-
+  
       const { error } = await supabase.from('finance_records').insert([
         { type, category, name, amount, record_date }
       ])
-
+  
       if (error) throw error
-
+  
       setShowAddForm(false)
       await fetchRecords()
     } catch (error) {
@@ -138,16 +138,16 @@ export default function FinancePage() {
       alert('添加记录失败，请重试')
     }
   }
-
+  
   const handleDelete = async (id: string) => {
     if (!confirm('确定要删除这条记录吗？')) return
-
+  
     try {
       const { error } = await supabase
         .from('finance_records')
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', id)
-
+  
       if (error) throw error
       await fetchRecords()
     } catch (error) {
@@ -155,11 +155,11 @@ export default function FinancePage() {
       alert('删除失败，请重试')
     }
   }
-
+  
   useEffect(() => {
     fetchRecords()
-  }, [startDate, endDate, type, category])
-
+  }, [startDate, endDate, type, category, fetchRecords])
+  
   useEffect(() => {
     // 根据时间维度自动设置日期范围
     const today = new Date()
@@ -171,7 +171,7 @@ export default function FinancePage() {
       setEndDate(format(today, 'yyyy-MM-dd'))
     }
   }, [timeRange])
-
+  
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -179,7 +179,7 @@ export default function FinancePage() {
       </div>
     )
   }
-
+  
   return (
     <div className="min-h-screen bg-gray-100">
       <header className="bg-white shadow">
@@ -193,7 +193,7 @@ export default function FinancePage() {
           </button>
         </div>
       </header>
-
+  
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           {/* 筛选条件 */}
@@ -265,7 +265,7 @@ export default function FinancePage() {
               </div>
             </div>
           </div>
-
+  
           {/* 统计信息 */}
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3 mb-6">
             <div className="bg-white p-6 rounded-lg shadow">
@@ -301,7 +301,7 @@ export default function FinancePage() {
               <p className="text-2xl font-bold text-blue-600">¥{(totalIncome - totalExpense).toFixed(2)}</p>
             </div>
           </div>
-
+  
           {/* 添加表单 */}
           {showAddForm && (
             <div className="bg-white p-6 rounded-lg shadow mb-6">
@@ -387,7 +387,7 @@ export default function FinancePage() {
               </form>
             </div>
           )}
-
+  
           {/* 记录列表 */}
           <div className="bg-white shadow overflow-hidden sm:rounded-lg">
             <table className="min-w-full divide-y divide-gray-200">

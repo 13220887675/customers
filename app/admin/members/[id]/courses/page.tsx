@@ -8,8 +8,9 @@ import type { Database } from '@/lib/supabase/types'
 type Member = Database['public']['Tables']['users']['Row']
 type CoursePurchase = Database['public']['Tables']['course_purchases']['Row']
 
+// 修改组件参数类型定义，使其与Next.js期望的类型匹配
 export default function MemberCoursesPage({ params }: { 
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
   const router = useRouter()
   const [member, setMember] = useState<Member | null>(null)
@@ -18,10 +19,11 @@ export default function MemberCoursesPage({ params }: {
   const [adding, setAdding] = useState(false)
   const [showAddForm, setShowAddForm] = useState(false)
   const [error, setError] = useState('')
+  const [memberId, setMemberId] = useState<string>('')
 
   useEffect(() => {
     // 检查用户是否已登录
-    const checkAuth = async () => {
+    const checkAuth = async (resolvedId: string) => {
       try {
         const userData = localStorage.getItem('user')
         if (!userData) {
@@ -39,7 +41,7 @@ export default function MemberCoursesPage({ params }: {
         const { data: member, error: memberError } = await supabase
           .from('users')
           .select('*')
-          .eq('id', params.id)
+          .eq('id', resolvedId)
           .single()
 
         if (memberError) throw memberError
@@ -49,7 +51,7 @@ export default function MemberCoursesPage({ params }: {
         const { data: purchases, error: purchasesError } = await supabase
           .from('course_purchases')
           .select('*')
-          .eq('user_id', params.id)
+          .eq('user_id', resolvedId)
           .order('purchase_date', { ascending: false })
 
         if (purchasesError) throw purchasesError
@@ -61,8 +63,21 @@ export default function MemberCoursesPage({ params }: {
       }
     }
 
-    checkAuth()
-  }, [params.id, router])
+    // 解析params参数
+    const resolveParams = async () => {
+      try {
+        // 由于params类型定义为Promise<{id: string}>，我们总是需要等待它解析
+        const resolvedParams = await params;
+        setMemberId(resolvedParams.id);
+        checkAuth(resolvedParams.id);
+      } catch (error) {
+        console.error('Error resolving params:', error);
+        setLoading(false);
+      }
+    };
+
+    resolveParams();
+  }, [params, router])
 
   const handleAddCourse = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -88,7 +103,7 @@ export default function MemberCoursesPage({ params }: {
       // 添加购课记录
       const { error: purchaseError } = await supabase.from('course_purchases').insert([
         {
-          user_id: params.id,
+          user_id: memberId,
           amount,
           quantity,
           purchase_date: purchaseDate,
@@ -106,7 +121,7 @@ export default function MemberCoursesPage({ params }: {
           .update({
             remaining_classes: member.remaining_classes + quantity
           })
-          .eq('id', params.id)
+          .eq('id', memberId)
 
         if (updateError) throw updateError
       }
@@ -115,13 +130,13 @@ export default function MemberCoursesPage({ params }: {
       const { data: updatedMember } = await supabase
         .from('users')
         .select('*')
-        .eq('id', params.id)
+        .eq('id', memberId)
         .single()
 
       const { data: updatedPurchases } = await supabase
         .from('course_purchases')
         .select('*')
-        .eq('user_id', params.id)
+        .eq('user_id', memberId)
         .order('purchase_date', { ascending: false })
 
       setMember(updatedMember || null)

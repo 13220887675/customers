@@ -4,9 +4,14 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
+type AdminUser = {
+  role: string
+  name: string
+}
+
 export default function AdminDashboard() {
   const router = useRouter()
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<AdminUser | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -35,7 +40,7 @@ export default function AdminDashboard() {
     }
 
     checkAuth()
-  }, [])
+  }, [router])
 
   if (loading) {
     return (

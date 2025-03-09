@@ -19,6 +19,7 @@ export interface Database {
           remaining_classes: number
           role: 'admin' | 'member'
           password: string
+          expiry_date: string
         }
         Insert: {
           id?: string
@@ -29,6 +30,7 @@ export interface Database {
           remaining_classes: number
           role?: 'admin' | 'member'
           password: string
+          expiry_date?: string
         }
         Update: {
           id?: string
@@ -39,6 +41,7 @@ export interface Database {
           remaining_classes?: number
           role?: 'admin' | 'member'
           password?: string
+          expiry_date?: string
         }
       }
       coaches: {

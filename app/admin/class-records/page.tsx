@@ -61,7 +61,7 @@ export default function ClassRecordsPage() {
     }
 
     checkAuth()
-  }, [])
+  }, [router])
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -109,9 +109,9 @@ export default function ClassRecordsPage() {
       if (updateError) throw updateError
 
       router.push('/admin/members')
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error:', error)
-      setError(error.message)
+      setError(error instanceof Error ? error.message : String(error))
     } finally {
       setSaving(false)
     }

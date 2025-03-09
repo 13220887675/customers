@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import { format, startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns'
@@ -16,6 +16,7 @@ import {
   Tooltip,
   Legend
 } from 'chart.js'
+import { Database } from '@/lib/supabase/types'
 
 // 注册 Chart.js 组件
 ChartJS.register(
@@ -31,6 +32,17 @@ ChartJS.register(
 
 type DateRange = 'month' | 'year'
 type ChartType = 'bar' | 'line'
+type Member = Database['public']['Tables']['users']['Row']
+type ChartData = {
+  labels: string[]
+  datasets: Array<{
+    label: string
+    data: number[]
+    backgroundColor: string | string[]
+    borderColor: string | string[]
+    borderWidth: number
+  }>
+}
 
 export default function AnalyticsPage() {
   const router = useRouter()
@@ -40,45 +52,12 @@ export default function AnalyticsPage() {
   const [chartType, setChartType] = useState<ChartType>('bar')
   const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'))
   const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'))
-  const [members, setMembers] = useState<any[]>([])
-  const [classData, setClassData] = useState<any>(null)
-  const [ageGroupData, setAgeGroupData] = useState<any>(null)
-  const [genderData, setGenderData] = useState<any>(null)
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const userData = localStorage.getItem('user')
-        if (!userData) {
-          router.push('/admin/login')
-          return
-        }
-
-        const parsedUser = JSON.parse(userData)
-        if (parsedUser.role !== 'admin') {
-          router.push('/admin/login')
-          return
-        }
-
-        // 获取所有会员列表
-        const { data: membersData } = await supabase
-          .from('users')
-          .select('id, name')
-          .eq('role', 'member')
-
-        setMembers(membersData || [])
-        await fetchAnalyticsData()
-      } catch (error) {
-        console.error('Error:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    checkAuth()
-  }, [])
-
-  const fetchAnalyticsData = async () => {
+  const [members, setMembers] = useState<Member[]>([])
+  const [classData, setClassData] = useState<ChartData | null>(null)
+  const [ageGroupData, setAgeGroupData] = useState<ChartData | null>(null)
+  const [genderData, setGenderData] = useState<ChartData | null>(null)
+  
+  const fetchAnalyticsData = useCallback(async () => {
     setLoading(true)
     try {
       let query = supabase
@@ -191,7 +170,40 @@ export default function AnalyticsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [dateRange, endDate, selectedMember, startDate])
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const userData = localStorage.getItem('user')
+        if (!userData) {
+          router.push('/admin/login')
+          return
+        }
+
+        const parsedUser = JSON.parse(userData)
+        if (parsedUser.role !== 'admin') {
+          router.push('/admin/login')
+          return
+        }
+
+        // 获取所有会员列表
+        const { data: membersData } = await supabase
+          .from('users')
+          .select('*')
+          .eq('role', 'member')
+
+        setMembers(membersData || [])
+        await fetchAnalyticsData()
+      } catch (error) {
+        console.error('Error:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    checkAuth()
+  }, [router, fetchAnalyticsData])
 
   const handleDateRangeChange = (range: DateRange) => {
     setDateRange(range)
@@ -207,7 +219,7 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     fetchAnalyticsData()
-  }, [selectedMember, startDate, endDate])
+  }, [selectedMember, startDate, endDate, fetchAnalyticsData])
 
   if (loading) {
     return (

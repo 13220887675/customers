@@ -3,18 +3,27 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
+import type { Database } from '@/lib/supabase/types'
 import { addDays, format } from 'date-fns'
 
-export default function MemberRenewPage({ params }: { params: { id: string } }) {
+type Member = Database['public']['Tables']['users']['Row']
+
+// 修改组件参数类型定义，使其与Next.js期望的类型匹配
+export default function MemberRenewPage({ params }: { 
+  params: Promise<{ id: string }>;
+}) {
   const router = useRouter()
+  const [member, setMember] = useState<Member | null>(null)
   const [loading, setLoading] = useState(true)
-  const [member, setMember] = useState<any>(null)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [memberId, setMemberId] = useState<string>('')
   const [classes, setClasses] = useState('')
   const [amount, setAmount] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    const checkAuth = async () => {
+    const checkAuth = async (resolvedId: string) => {
       try {
         const userData = localStorage.getItem('user')
         if (!userData) {
@@ -32,7 +41,7 @@ export default function MemberRenewPage({ params }: { params: { id: string } }) 
         const { data: member, error } = await supabase
           .from('users')
           .select('*')
-          .eq('id', params.id)
+          .eq('id', resolvedId)
           .single()
 
         if (error) throw error
@@ -50,8 +59,21 @@ export default function MemberRenewPage({ params }: { params: { id: string } }) 
       }
     }
 
-    checkAuth()
-  }, [params.id])
+    // 解析params参数
+    const resolveParams = async () => {
+      try {
+        // 由于params类型定义为Promise<{id: string}>，我们总是需要等待它解析
+        const resolvedParams = await params;
+        setMemberId(resolvedParams.id);
+        checkAuth(resolvedParams.id);
+      } catch (error) {
+        console.error('Error resolving params:', error);
+        setLoading(false);
+      }
+    };
+
+    resolveParams();
+  }, [params, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -66,7 +88,7 @@ export default function MemberRenewPage({ params }: { params: { id: string } }) 
       const { data: currentMember, error: memberError } = await supabase
         .from('users')
         .select('*')
-        .eq('id', params.id)
+        .eq('id', memberId)
         .single()
 
       if (memberError) throw memberError
@@ -83,22 +105,21 @@ export default function MemberRenewPage({ params }: { params: { id: string } }) 
           remaining_classes: (currentMember.remaining_classes || 0) + classesNum,
           expiry_date: formattedExpiryDate
         })
-        .eq('id', params.id)
+        .eq('id', memberId)
 
       if (updateError) throw updateError
 
       // 记录购课记录
       const { error: purchaseError } = await supabase
         .from('course_purchases')
-        .insert([
-          {
-            user_id: params.id,
-            classes: classesNum,
-            amount: amountNum,
-            purchase_date: format(currentDate, 'yyyy-MM-dd'),
-            expiry_date: formattedExpiryDate
-          }
-        ])
+        .insert([{
+          user_id: memberId,
+          classes: classesNum,
+          amount: amountNum,
+          purchase_date: format(currentDate, 'yyyy-MM-dd'),
+          valid_days: 30,
+          expiry_date: formattedExpiryDate
+        }])
 
       if (purchaseError) throw purchaseError
 
@@ -137,22 +158,22 @@ export default function MemberRenewPage({ params }: { params: { id: string } }) 
               <dl className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
                 <div>
                   <dt className="text-sm font-medium text-gray-500">姓名</dt>
-                  <dd className="mt-1 text-sm text-gray-900">{member.name}</dd>
+                  <dd className="mt-1 text-sm text-gray-900">{member?.name}</dd>
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-gray-500">手机号</dt>
-                  <dd className="mt-1 text-sm text-gray-900">{member.phone}</dd>
+                  <dd className="mt-1 text-sm text-gray-900">{member?.phone}</dd>
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-gray-500">当前剩余课程</dt>
                   <dd className="mt-1 text-sm text-gray-900">
-                    {member.remaining_classes || 0} 节
+                    {member?.remaining_classes || 0} 节
                   </dd>
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-gray-500">当前有效期至</dt>
                   <dd className="mt-1 text-sm text-gray-900">
-                    {member.expiry_date || '未设置'}
+                    {member?.expiry_date || '未设置'}
                   </dd>
                 </div>
               </dl>

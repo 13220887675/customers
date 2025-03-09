@@ -7,16 +7,19 @@ import type { Database } from '@/lib/supabase/types'
 
 type Member = Database['public']['Tables']['users']['Row']
 
-export default function EditMemberPage({ params }: { params: { id: string } }) {
+// 修改组件参数类型定义，使其与Next.js期望的类型匹配
+export default function MemberDetailPage({ params }: { 
+  params: Promise<{ id: string }>;
+}) {
   const router = useRouter()
   const [member, setMember] = useState<Member | null>(null)
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+  const [memberId, setMemberId] = useState<string>('')
   const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    // 检查用户是否已登录
-    const checkAuth = async () => {
+    const checkAuth = async (resolvedId: string) => {
       try {
         const userData = localStorage.getItem('user')
         if (!userData) {
@@ -34,7 +37,7 @@ export default function EditMemberPage({ params }: { params: { id: string } }) {
         const { data: member, error } = await supabase
           .from('users')
           .select('*')
-          .eq('id', params.id)
+          .eq('id', resolvedId)
           .single()
 
         if (error) throw error
@@ -46,8 +49,21 @@ export default function EditMemberPage({ params }: { params: { id: string } }) {
       }
     }
 
-    checkAuth()
-  }, [params.id])
+    // 解析params参数
+    const resolveParams = async () => {
+      try {
+        // 由于params类型定义为Promise<{id: string}>，我们总是需要等待它解析
+        const resolvedParams = await params;
+        setMemberId(resolvedParams.id);
+        checkAuth(resolvedParams.id);
+      } catch (error) {
+        console.error('Error resolving params:', error);
+        setLoading(false);
+      }
+    };
+
+    resolveParams();
+  }, [params, router])
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -78,14 +94,14 @@ export default function EditMemberPage({ params }: { params: { id: string } }) {
           course_amount: courseAmount,
           validity_days: validityDays
         })
-        .eq('id', params.id)
+        .eq('id', memberId)
 
       if (error) throw error
 
       router.push('/admin/members')
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error:', error)
-      setError(error.message)
+      setError(error instanceof Error ? error.message : String(error))
     } finally {
       setSaving(false)
     }
