@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "build": "npx ts-node scripts/init-db.ts && next build",
     "start": "next start",
     "lint": "next lint"
   },
@@ -26,6 +26,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.2.1",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "ts-node": "^10.9.2"
   }
 }

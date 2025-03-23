@@ -16,6 +16,16 @@
 - 账号：会员手机号
 - 密码：手机号后6位
 
+## 功能模块
+
+### 管理界面
+- 数据分析看板：`/admin/analytics`
+- 会员管理：`/admin/members`（含新增、续费、课程记录）
+- 课程记录：`/admin/class-records`
+- 财务管理：`/admin/finance`
+- 教练管理：`/admin/coaches`
+- 数据库管理：`/admin/database`
+
 ## Getting Started
 
 First, run the development server:
