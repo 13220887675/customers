@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 
@@ -8,8 +8,36 @@ export default function AddCoachPage() {
   const router = useRouter()
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [loading, setLoading] = useState(true)
+  
+  useEffect(() => {
+    // 检查管理员权限
+    const checkAuth = async () => {
+      try {
+        const userData = localStorage.getItem('user')
+        if (!userData) {
+          router.push('/admin/login')
+          return
+        }
+
+        const parsedUser = JSON.parse(userData)
+        if (parsedUser.role !== 'admin') {
+          router.push('/admin/login')
+          return
+        }
+      } catch (error) {
+        console.error('权限检查错误:', error)
+        router.push('/admin/login')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    checkAuth()
+  }, [router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -17,6 +45,7 @@ export default function AddCoachPage() {
     setSaving(true);
 
     try {
+      // 表单验证
       if (!name.trim()) {
         throw new Error('请输入教练姓名');
       }
@@ -24,13 +53,26 @@ export default function AddCoachPage() {
       if (!/^1[3-9]\d{9}$/.test(phone)) {
         throw new Error('请输入有效的11位手机号码');
       }
+      
+      if (!password) {
+        throw new Error('请设置密码');
+      }
+
+      if (password.length < 6) {
+        throw new Error('密码长度不能少于6位');
+      }
 
       // 检查手机号是否已存在
-      const { count } = await supabase
+      const { count, error: countError } = await supabase
         .from('users')
         .select('*', { count: 'exact' })
         .eq('phone', phone)
         .is('deleted_at', null);
+        
+      if (countError) {
+        console.error('检查手机号错误:', countError);
+        throw new Error('系统错误，请稍后重试');
+      }
 
       if (count && count > 0) {
         throw new Error('该手机号已被注册');
@@ -42,24 +84,40 @@ export default function AddCoachPage() {
         .insert([{
           name,
           phone,
+          password,
           role: 'coach',
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          remaining_classes: 0 // 教练不需要课程数，设为0
         }])
         .select()
 
-      if (supabaseError) throw supabaseError
+      if (supabaseError) {
+        console.error('创建教练账号错误:', supabaseError);
+        throw new Error('创建账号失败，请稍后重试');
+      }
 
       if (data) {
-        router.push('/admin/coaches')
+        // 创建成功，跳转到教练列表页
+        router.push('/admin/coaches');
+      } else {
+        throw new Error('创建账号失败，请稍后重试');
       }
     } catch (err) {
-      console.error('添加教练错误:', err)
-      setError(err instanceof Error ? err.message : '添加失败')
+      console.error('添加教练错误:', err);
+      setError(err instanceof Error ? err.message : '添加失败');
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-2xl">加载中...</div>
+      </div>
+    )
+  }
+  
   return (
     <div className="min-h-screen bg-gray-100">
       <header className="bg-white shadow">
@@ -84,6 +142,7 @@ export default function AddCoachPage() {
                     className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
+                    placeholder="请输入教练姓名"
                   />
                 </div>
 
@@ -99,7 +158,27 @@ export default function AddCoachPage() {
                     className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, ''))}
+                    placeholder="请输入11位手机号码"
+                    maxLength={11}
                   />
+                  <p className="mt-1 text-xs text-gray-500">手机号将作为教练的登录账号</p>
+                </div>
+                
+                <div>
+                  <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                    密码
+                  </label>
+                  <input
+                    type="password"
+                    id="password"
+                    required
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="请设置登录密码"
+                    minLength={6}
+                  />
+                  <p className="mt-1 text-xs text-gray-500">密码长度不少于6位</p>
                 </div>
 
                 {error && (

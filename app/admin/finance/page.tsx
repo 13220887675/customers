@@ -46,7 +46,66 @@ export default function FinancePage() {
           return
         }
 
-        await fetchRecords()
+        // 将fetchRecords移到内部，避免依赖项问题
+        const fetchRecordsInternal = async () => {
+          try {
+            let query = supabase
+              .from('finance_records')
+              .select('*')
+              .is('deleted_at', null)
+              .gte('record_date', startDate)
+              .lte('record_date', endDate)
+              .order('record_date', { ascending: false })
+
+            if (type !== 'all') {
+              query = query.eq('type', type)
+            }
+
+            if (category !== 'all') {
+              query = query.eq('category', category)
+            }
+
+            const { data } = await query
+            setRecords(data || [])
+
+            // 计算各类收支
+            let income = 0
+            let expense = 0
+            let courseInc = 0
+            let coachExp = 0
+            let otherInc = 0
+            let otherExp = 0
+
+            data?.forEach(record => {
+              if (record.type === 'income') {
+                income += record.amount
+                if (record.category === 'course') {
+                  courseInc += record.amount
+                } else if (record.category === 'other') {
+                  otherInc += record.amount
+                }
+              } else {
+                expense += record.amount
+                if (record.category === 'coach_fee') {
+                  coachExp += record.amount
+                } else if (record.category === 'other') {
+                  otherExp += record.amount
+                }
+              }
+            })
+
+            setTotalIncome(income)
+            setTotalExpense(expense)
+            setCourseIncome(courseInc)
+            setCoachExpense(coachExp)
+            setOtherIncome(otherInc)
+            setOtherExpense(otherExp)
+          } catch (error) {
+            console.error('Error fetching records:', error)
+          }
+        }
+
+        await fetchRecordsInternal()
       } catch (error) {
         console.error('Error:', error)
       } finally {
@@ -55,7 +114,7 @@ export default function FinancePage() {
     }
 
     checkAuth()
-  }, [router])
+  }, [router, startDate, endDate, type, category])
 
   const fetchRecords = useCallback(async () => {
     try {
@@ -158,7 +217,7 @@ export default function FinancePage() {
   
   useEffect(() => {
     fetchRecords()
-  }, [startDate, endDate, type, category, fetchRecords])
+  }, [startDate, endDate, type, category])
   
   useEffect(() => {
     // 根据时间维度自动设置日期范围

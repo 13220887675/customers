@@ -15,8 +15,6 @@ export default function MemberRenewPage({ params }: {
   const router = useRouter()
   const [member, setMember] = useState<Member | null>(null)
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
   const [memberId, setMemberId] = useState<string>('')
   const [classes, setClasses] = useState('')
   const [amount, setAmount] = useState('')
